@@ -342,10 +342,10 @@ if __name__ == "__main__":
             results = query_collection(prompt)
             context = results.get("documents")[0]
             relevant_text, relevant_text_ids = re_rank_cross_encoders(context)
-            response = call_llm(context=relevant_text, prompt=prompt)
-            st.write_stream(response)
+            response_text = "".join([chunk for chunk in call_llm(context=relevant_text, prompt=prompt)])
+            st.write_stream(response_text)
 
-            pdf_bytes = generate_pdf(response)
+            pdf_bytes = generate_pdf(response_text)
             st.download_button("Download Result as PDF", data=pdf_bytes, file_name="result.pdf", mime="application/pdf")
 
             with st.expander("Analyzed documents references:"):
