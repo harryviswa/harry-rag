@@ -343,7 +343,7 @@ if __name__ == "__main__":
             context = results.get("documents")[0]
             relevant_text, relevant_text_ids = re_rank_cross_encoders(context)
             response_text = "".join([chunk for chunk in call_llm(context=relevant_text, prompt=prompt)])
-            st.write_stream(response_text)
+            st.write(response_text)
 
             pdf_bytes = generate_pdf(response_text)
             st.download_button("Download Result as PDF", data=pdf_bytes, file_name="result.pdf", mime="application/pdf")
@@ -363,8 +363,8 @@ if __name__ == "__main__":
             response = call_llm(context=relevant_text, prompt="Provide a detailed summary on the given requirement."+prompt)
             st.write_stream(response)
 
-            pdf_bytes = generate_pdf(response)
-            st.download_button("Download Result as PDF", data=pdf_bytes, file_name="AI-Summary.pdf", mime="application/pdf")
+           # pdf_bytes = generate_pdf(response)
+           # st.download_button("Download Result as PDF", data=pdf_bytes, file_name="AI-Summary.pdf", mime="application/pdf")
 
             with st.expander("Analyzed documents references:"):
                 st.write(results)
