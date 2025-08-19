@@ -255,7 +255,12 @@ def re_rank_cross_encoders(documents: list[str]) -> tuple[str, list[int]]:
 
 if __name__ == "__main__":
     # Document Upload Area
-    st.set_page_config(page_title="☄️ Quality Engineering AI Assistant by Harry ☄️", layout="wide")
+    st.set_page_config(
+            page_title="☄️ Quality Engineering AI Assistant by Harry ☄️", 
+            page_icon="☄️"
+            layout="wide",
+            initial_sidebar_state="expanded"
+        )
 
     with st.sidebar:
         st.set_page_config(page_title="QE AI Assistant", layout="wide")
@@ -407,8 +412,7 @@ if __name__ == "__main__":
 
     if not prompt and (ask or  summary or  test_strategy or  test_case):
         st.error(
-            "Please upload a document and provide a question or context to get started. "
-            "Your AI assistant is ready to help you with Quality Engineering tasks!"
+            "Please upload a document and provide a question or context to help you better"
         )
         
     st.markdown(
