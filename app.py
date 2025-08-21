@@ -276,6 +276,13 @@ def re_rank_cross_encoders(documents: list[str]) -> tuple[str, list[int]]:
 
     return relevant_text, relevant_text_ids
 
+import base64
+
+def get_base64_image(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+    
+
 
 if __name__ == "__main__":
 
@@ -291,41 +298,41 @@ if __name__ == "__main__":
     if "vector_index" not in st.session_state:
         st.session_state["vector_index"] = None
         st.session_state["chunks"] = []
-    st.markdown("""
-        <style>
-        .stSidebar  {
-            text-align: center;
-            color: white;
-        }
-        .stFileUploader  {
-            text-align: center;
-            color: white;
-        }
-        .stFileUploader  p{
-            color: white;
-        }
-        .stMarkdown{    
-            text-align: left;
-            color: white;
-        }
-         .stButton button {
-            background-color: #d3d3d3;
-            color: black;
-            border-radius: 10px;
-            border: none;
-            padding: 0.5em 1em;
-            font-size: 1em;
-            margin: 0.2em;
-            width: 200px;
-            height: 90px;
-            transition: background 0.5s;
-        }
-        .stButton button:hover {
-            background-color: #a3a3a3;
-            color: white;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+    # st.markdown("""
+    #     <style>
+    #     .stSidebar  {
+    #         text-align: center;
+    #         color: white;
+    #     }
+    #     .stFileUploader  {
+    #         text-align: center;
+    #         color: white;
+    #     }
+    #     .stFileUploader  p{
+    #         color: white;
+    #     }
+    #     .stMarkdown{    
+    #         text-align: left;
+    #         color: white;
+    #     }
+    #      .stButton button {
+    #         background-color: #d3d3d3;
+    #         color: black;
+    #         border-radius: 10px;
+    #         border: none;
+    #         padding: 0.5em 1em;
+    #         font-size: 1em;
+    #         margin: 0.2em;
+    #         width: 200px;
+    #         height: 90px;
+    #         transition: background 0.5s;
+    #     }
+    #     .stButton button:hover {
+    #         background-color: #a3a3a3;
+    #         color: white;
+    #     }
+    #     </style>
+    #     """, unsafe_allow_html=True)
     
    # Document Upload Area
     st.set_page_config(
@@ -337,6 +344,9 @@ if __name__ == "__main__":
 
     with st.sidebar:
         st.set_page_config(page_title="QE AI Assistant", layout="wide")
+        st.markdown(
+        """<h2><br><br><br></h2>"""
+        , unsafe_allow_html=True)
         st.header("Configuration Settings for your Quality Engineering AI Assistant")
 
         with st.expander("Add your PDF Resource:"):
@@ -366,12 +376,18 @@ if __name__ == "__main__":
                 add_to_vector_collection(all_splits, url_input.replace("https://", "").replace("http://", "").replace("/", "_"))
 
         mode = st.radio("Choose model source:", ["Offline (Ollama)", "Online (OpenAI)"])
+    
+    bg_image_base64 = get_base64_image("bg.gif")  # Make sure bg.gif is in your project folder
 
     st.markdown("""
         <style>
         .stApp {
             text-align: center;
             color: black;
+            background-image: url("data:image/gif;base64,{bg_image_base64}");
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
         }
         .stTextArea textarea {
             border-radius: 10px;
@@ -397,7 +413,7 @@ if __name__ == "__main__":
             transition: background 0.5s;
         }
         .stButton button:hover {
-            background-color: #a3a3a3;
+            background-color: #6acfeeff;
             color: white;
         }
         .stTitle, .stHeader, .stSubheader, .stText {
@@ -428,7 +444,7 @@ if __name__ == "__main__":
     
    
 
-    left, center,right= st.columns([1, 5,1])
+    center,right= st.columns([6,1])
 
 
     # with left:
