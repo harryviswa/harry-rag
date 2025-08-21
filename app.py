@@ -283,7 +283,6 @@ def get_base64_image(image_path):
         return base64.b64encode(img_file.read()).decode()
     
 
-
 if __name__ == "__main__":
 
     # ------------------------
@@ -377,17 +376,17 @@ if __name__ == "__main__":
 
         mode = st.radio("Choose model source:", ["Offline (Ollama)", "Online (OpenAI)"])
     
-    bg_image_base64 = get_base64_image("bg.gif")  # Make sure bg.gif is in your project folder
+    # bg_image_base64 = get_base64_image("bg.gif")  # Make sure bg.gif is in your project folder
 
     st.markdown("""
         <style>
         .stApp {
             text-align: center;
             color: black;
-            background-image: url("data:image/gif;base64,{bg_image_base64}");
-            background-size: cover;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
+            # background-image: url('https://gifdb.com/images/high/office-desk-background-myhb5mf4xpj1ews9.gif');
+            # background-size: cover;
+            # background-repeat: no-repeat;
+            # background-attachment: fixed;
         }
         .stTextArea textarea {
             border-radius: 10px;
