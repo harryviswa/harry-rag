@@ -18,6 +18,8 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import CrossEncoder
 
+from openai import OpenAI
+client = OpenAI(api_key="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")
 
 system_prompt = """
 You are an AI assistant tasked with providing detailed answers based solely on the given context. Your goal is to analyze the information provided and formulate a comprehensive, well-structured response to the question.
@@ -69,9 +71,6 @@ Important: Base your entire response solely on the information provided in the c
 qa_strategy_prompt = """
 You are a Quality Assurance AI assistant tasked with providing detailed answers based solely on the given context. Your goal is to analyze the information provided and formulate a comprehensive, well-structured response to the question.
 
-context will be passed as "Context:"
-user question will be passed as "Question:"
-
 To answer the question:
 1. Thoroughly analyze the context, identifying key information relevant to the question.
 2. Organize your thoughts and plan your response to ensure a logical flow of information.
@@ -85,12 +84,7 @@ Format your response as follows:
     Use H3 (###) for sub-section titles if any.
     Use bold emphasis (**) for important terms or phrases where appropriate.
     Ensure lists are formatted with standard Markdown list syntax (e.g., "- List item" or "* List item").
-    **For tabular data such as lists of test types, environments, tools, or risk matrices, YOU MUST use standard Markdown pipe table syntax for better readability and structure. Example:
-    | Header 1 | Header 2 | Header 3 |
-    |---|---|---|
-    | Row 1 Col 1 | Row 1 Col 2 | Row 1 Col 3 |
-    | Row 2 Col 1 | Row 2 Col 2 | Row 2 Col 3 |
-    Ensure table headers are separated from rows by a line of hyphens and pipes (e.g., |---|---|).**
+    **For tabular data such as lists of test types, environments, tools, or risk matrices, YOU MUST use st.dataframe() table syntax for better readability and structure.**
 
     The test strategy must include the following sections (formatted as H2 headings):
     - Test Objectives
@@ -159,6 +153,7 @@ def generate_pdf(text: str) -> bytes:
     pdf_output = pdf.output(dest='S').encode('latin1')
     return pdf_output
 
+
 def get_vector_collection() -> chromadb.Collection:
     ollama_ef = OllamaEmbeddingFunction(
         url="http://localhost:11434/api/embeddings",
@@ -197,28 +192,57 @@ def query_collection(prompt: str, n_results: int = 10):
 
 
 def call_llm_strategy(context: str, prompt: str):
-    response = ollama.chat(
-        model="llama3.2:3b",
-        stream=True,
+    st.session_state["prompts"].append(prompt)
+    st.session_state["messages"].append({"role": "user", "content": prompt})
+
+    if mode == "Offline (Ollama)":
+        response = ollama.chat(
+            model="llama3.2:3b",
+            stream=True,
+            messages=[
+                {
+                    "role": "system",
+                    "content": qa_strategy_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": f"Context: {context}, Question: {prompt}",
+                },
+            ],
+        )
+        for chunk in response:
+            if chunk["done"] is False:
+                yield chunk["message"]["content"]
+            else:
+                break
+    else:
+        response = client.chat.completions.create(
+        model="gpt-4o-mini",
         messages=[
-            {
-                "role": "system",
-                "content": qa_strategy_prompt,
-            },
-            {
-                "role": "user",
-                "content": f"Context: {context}, Question: {prompt}",
-            },
-        ],
-    )
-    for chunk in response:
-        if chunk["done"] is False:
-            yield chunk["message"]["content"]
-        else:
-            break
+                {
+                    "role": "system",
+                    "content": qa_strategy_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": f"Context: {context}, Question: {prompt}",
+                },
+            ],
+        stream=True,
+        )
+        for chunk in response:
+            if chunk["done"] is False:
+                yield chunk.choices[0].message.content
+            else:
+                break
+   
 
 
 def call_llm(context: str, prompt: str):
+
+    st.session_state["prompts"].append(prompt)
+    st.session_state["messages"].append({"role": "user", "content": prompt})
+
     response = ollama.chat(
         model="llama3.2:3b",
         stream=True,
@@ -254,10 +278,59 @@ def re_rank_cross_encoders(documents: list[str]) -> tuple[str, list[int]]:
 
 
 if __name__ == "__main__":
-    # Document Upload Area
+
+    # ------------------------
+    # Init session state
+    # ------------------------
+    if "messages" not in st.session_state:
+        st.session_state["messages"] = [
+            {"role": "system", "content": "You are a helpful local agent. "
+                                        "You can use tools like calculator and rag_search. "
+                                        "If needed, reply in JSON: {\"tool\": \"toolname\", \"input\": \"...\"}"}
+        ]
+    if "vector_index" not in st.session_state:
+        st.session_state["vector_index"] = None
+        st.session_state["chunks"] = []
+    st.markdown("""
+        <style>
+        .stSidebar  {
+            text-align: center;
+            color: white;
+        }
+        .stFileUploader  {
+            text-align: center;
+            color: white;
+        }
+        .stFileUploader  p{
+            color: white;
+        }
+        .stMarkdown{    
+            text-align: left;
+            color: white;
+        }
+         .stButton button {
+            background-color: #d3d3d3;
+            color: black;
+            border-radius: 10px;
+            border: none;
+            padding: 0.5em 1em;
+            font-size: 1em;
+            margin: 0.2em;
+            width: 200px;
+            height: 90px;
+            transition: background 0.5s;
+        }
+        .stButton button:hover {
+            background-color: #a3a3a3;
+            color: white;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    
+   # Document Upload Area
     st.set_page_config(
             page_title="☄️ Quality Engineering AI Assistant by Harry ☄️", 
-            page_icon="☄️"
+            page_icon="☄️",
             layout="wide",
             initial_sidebar_state="expanded"
         )
@@ -292,47 +365,125 @@ if __name__ == "__main__":
                 all_splits = process_url(url_input)
                 add_to_vector_collection(all_splits, url_input.replace("https://", "").replace("http://", "").replace("/", "_"))
 
-    left, center, right = st.columns([1, 3, 1])
+        mode = st.radio("Choose model source:", ["Offline (Ollama)", "Online (OpenAI)"])
 
     st.markdown("""
-    <style>
-    .stApp {
-        background-color: black;
-        text-align: center;
+        <style>
+        .stApp {
+            text-align: center;
+            color: black;
+        }
+        .stTextArea textarea {
+            border-radius: 10px;
+            border: 1px solid #90caf9;
+            background: white;
+            font-size: 1em;
+            color: black;
+            padding: 1em;
+            height: 150px;
+            width: 100%;
+            transition: border-color 0.5s;
+        }
+        .stButton button {
+            background-color: black;
+            color: white;
+            border-radius: 10px;
+            border: none;
+            padding: 1em 1em;
+            font-size: 1em;
+            margin: 0.2em;
+            width: 220px;
+            height: 90px;
+            transition: background 0.5s;
+        }
+        .stButton button:hover {
+            background-color: #a3a3a3;
+            color: white;
+        }
+        .stTitle, .stHeader, .stSubheader, .stText {
+            text-align: center;
+        }
+        .stAlert {
+            text-align: center;
+            color: red;
+        }
+        .stMarkdown{    
+            text-align: left;
+            color: black;
+        }
+        .stMarkdown p{    
+            text-align: center;
+            color: black;
+        }
+        .stMarkdown hr{    
+            border-color: black;
+            border-block-end-width: 2px;
+        }
+        label {
+            color: black;
+            font-weight: bold;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    
+   
 
-    }
-    .stTextArea textarea {
-        border-radius: 10px;
-        border: 1px solid #90caf9;
-        background: #fff;
-        font-size: 1.1em;
-        color: black;
-        padding: 1em;
-    }
-    .stButton button {
-        background-color: white;
-        color: maroon;
-        border-radius: 10px;
-        border: none;
-        padding: 0.5em 1em;
-        font-size: 1em;
-        margin: 0.2em;
-        width: 200px;
-        height: 50px;
-        transition: background 0.5s;
-    }
-    .stButton button:hover {
-        background-color: teal;
-    }
-    .stHeader, .stTitle {
-        text-align: center;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    left, center,right= st.columns([1, 5,1])
+
+
+    # with left:
+    #     st.markdown(
+    #     """<h2><br><br><br>Configuration Settings for your Quality Engineering AI Assistant</h2>"""
+    #     , unsafe_allow_html=True)
+
+    #     with st.expander("Add your PDF Resource:"):
+    #         uploaded_file = st.file_uploader(
+    #             "Add your source to help you better", type=["pdf"], accept_multiple_files=False
+    #         )
+    #         process = st.button(
+    #             "➕ Add PDF Content",
+    #         )
+
+    #     with st.expander("Add your Webpage Resource:"):
+    #         url_input = st.text_input("OR Enter a web page URL to analyze")
+    #         process_url_btn = st.button("➕ Add Web Content")
+    
+        
+    #     if uploaded_file and process:
+    #         normalize_uploaded_file_name = uploaded_file.name.translate(
+    #             str.maketrans({"-": "_", ".": "_", " ": "_"})
+    #         )
+    #         with st.spinner("Analyzing your document... Please allow me sometime..."):
+    #             all_splits = process_document(uploaded_file)
+    #             add_to_vector_collection(all_splits, normalize_uploaded_file_name)
+
+    #     if url_input and process_url_btn:
+    #         with st.spinner("Fetching and analyzing web page..."):
+    #             all_splits = process_url(url_input)
+    #             add_to_vector_collection(all_splits, url_input.replace("https://", "").replace("http://", "").replace("/", "_"))
+
+    #     mode = st.radio("Choose model source:", ["Offline (Ollama)", "Online (OpenAI)"])
+
+
     with center:
         st.title("☄️ Quality Engineering AI Assistant ☄️")
         st.header("Your on-demand AI assistant for Quality Engineering")
+
+        # ------------------------
+        # Session state
+        # ------------------------
+        if "messages" not in st.session_state:
+            st.session_state["messages"] = [
+                {"role": "system", "content": "You are a helpful local agent. "
+                                            "You can use tools like calculator. "
+                                            "If needed, reply in JSON: {\"tool\": \"toolname\", \"input\": \"...\"}"}
+            ]
+        if "prompts" not in st.session_state:
+            st.session_state["prompts"] = []  # store all past prompts
+
         prompt = st.text_area("**Provide your context or questions on the source provided**")
+
+
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             ask = st.button("💡 Enlight me")
@@ -414,7 +565,29 @@ if __name__ == "__main__":
         st.error(
             "Please upload a document and provide a question or context to help you better"
         )
-        
+    
+    with right:
+        st.markdown(
+        """
+        <br><br><br><br><br><br><br>
+        """
+        , unsafe_allow_html=True)
+        # ------------------------
+        # Dropdown of past prompts
+        # ------------------------
+        if st.session_state["prompts"]:
+            selected_prompt = st.selectbox("📜 Past Prompts", st.session_state["prompts"][::-1])  # newest first
+            st.info(f"Selected: {selected_prompt}")
+
+        # # ------------------------
+        # # Display full conversation
+        # # ------------------------
+        # st.subheader("Conversation History")
+        # for msg in st.session_state["messages"]:
+        #     #role = "🧑 User" if msg["role"] == "user" else "🤖 Assistant"
+        #     if msg["role"] == "user":
+        #         st.markdown(f"** 🧑User:** {msg['content']}")
+
     st.markdown(
         """
         ---
