@@ -9,6 +9,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import CrossEncoder
 from openai import OpenAI
 import streamlit as st
+from prompts import system_prompt, qa_prompt, qa_strategy_prompt
 
 #client = OpenAI(api_key="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")
 
@@ -76,8 +77,9 @@ def query_collection(prompt, n_results=10):
     results = collection.query(query_texts=[prompt], n_results=n_results)
     return results
 
-def call_llm_strategy(context, prompt, mode, client, qa_strategy_prompt):
-    st.session_state["prompts"].append(prompt)
+def call_llm_strategy(context, prompt, spl_prompt, mode, client):
+    if prompt not in st.session_state["prompts"]:
+        st.session_state["prompts"].append(prompt)
     st.session_state["messages"].append({"role": "user", "content": prompt})
     if mode == "Offline":
         response = ollama.chat(
@@ -85,7 +87,7 @@ def call_llm_strategy(context, prompt, mode, client, qa_strategy_prompt):
             stream=True,
             messages=[
                 {"role": "system", "content": qa_strategy_prompt},
-                {"role": "user", "content": f"Context: {context}, Question: {prompt}"},
+                {"role": "user", "content": f"Context: {context}, Question: {prompt}, Requirements: {spl_prompt}"},
             ],
         )
         for chunk in response:
@@ -98,7 +100,7 @@ def call_llm_strategy(context, prompt, mode, client, qa_strategy_prompt):
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": qa_strategy_prompt},
-                {"role": "user", "content": f"Context: {context}, Question: {prompt}"},
+                {"role": "user", "content": f"Context: {context}, Question: {prompt}, Requirements: {spl_prompt}"},
             ],
             stream=True,
         )
@@ -108,15 +110,16 @@ def call_llm_strategy(context, prompt, mode, client, qa_strategy_prompt):
             else:
                 break
 
-def call_llm(context, prompt, qa_prompt):
-    st.session_state["prompts"].append(prompt)
+def call_llm(context, prompt, spl_prompt):
+    if prompt not in st.session_state["prompts"]:
+        st.session_state["prompts"].append(prompt)
     st.session_state["messages"].append({"role": "user", "content": prompt})
     response = ollama.chat(
         model="llama3.2:3b",
         stream=True,
         messages=[
             {"role": "system", "content": qa_prompt},
-            {"role": "user", "content": f"Context: {context}, Question: {prompt}"},
+            {"role": "user", "content": f"Context: {context}, Question: {prompt}, Requirements: {spl_prompt}"},
         ],
     )
     for chunk in response:

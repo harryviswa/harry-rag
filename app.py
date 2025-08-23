@@ -20,41 +20,6 @@ if __name__ == "__main__":
     if "vector_index" not in st.session_state:
         st.session_state["vector_index"] = None
         st.session_state["chunks"] = []
-    # st.markdown("""
-    #     <style>
-    #     .stSidebar  {
-    #         text-align: center;
-    #         color: white;
-    #     }
-    #     .stFileUploader  {
-    #         text-align: center;
-    #         color: white;
-    #     }
-    #     .stFileUploader  p{
-    #         color: white;
-    #     }
-    #     .stMarkdown{    
-    #         text-align: left;
-    #         color: white;
-    #     }
-    #      .stButton button {
-    #         background-color: #d3d3d3;
-    #         color: black;
-    #         border-radius: 10px;
-    #         border: none;
-    #         padding: 0.5em 1em;
-    #         font-size: 1em;
-    #         margin: 0.2em;
-    #         width: 200px;
-    #         height: 90px;
-    #         transition: background 0.5s;
-    #     }
-    #     .stButton button:hover {
-    #         background-color: #a3a3a3;
-    #         color: white;
-    #     }
-    #     </style>
-    #     """, unsafe_allow_html=True)
     
    # Document Upload Area
     st.set_page_config(
@@ -69,10 +34,10 @@ if __name__ == "__main__":
         st.markdown(
         """<h2><br><br><br></h2>"""
         , unsafe_allow_html=True)
-        st.header("Configuration Settings for your Quality Engineering AI Assistant")
+        st.header("💾 Configuration Settings")
 
 
-        with st.expander("Add Resource"):
+        with st.expander("💽 Add Resource"):
             with st.expander("Add your PDF/Excel/Text Resource:"):
                 uploaded_file = st.file_uploader(
                     "Add your source to help you better", 
@@ -101,7 +66,7 @@ if __name__ == "__main__":
                 all_splits = process_url(url_input)
                 add_to_vector_collection(all_splits, url_input.replace("https://", "").replace("http://", "").replace("/", "_"))
 
-        with st.expander("Model Selection"):
+        with st.expander("🧑‍🦱 Model Selection (Offline/Online)"):
             mode = st.radio("Choose model source:", ["Offline", "Online (OpenAI)"])
             usr_key = None
             if mode == "Online (OpenAI)":
@@ -186,49 +151,12 @@ if __name__ == "__main__":
    
     topl,topc,topr= st.columns([1,6,1])
     with topc:
-        st.title("☄️ Quality Engineering AI Assistant ☄️")
+        st.title("🧮 Quality Engineering AI Assistant")
         st.header("Your on-demand AI assistant for Quality Engineering")
 
     center,right= st.columns([6,2])
 
-
-    # with left:
-    #     st.markdown(
-    #     """<h2><br><br><br>Configuration Settings for your Quality Engineering AI Assistant</h2>"""
-    #     , unsafe_allow_html=True)
-
-    #     with st.expander("Add your PDF Resource:"):
-    #         uploaded_file = st.file_uploader(
-    #             "Add your source to help you better", type=["pdf"], accept_multiple_files=False
-    #         )
-    #         process = st.button(
-    #             "➕ Add PDF Content",
-    #         )
-
-    #     with st.expander("Add your Webpage Resource:"):
-    #         url_input = st.text_input("OR Enter a web page URL to analyze")
-    #         process_url_btn = st.button("➕ Add Web Content")
-    
-        
-    #     if uploaded_file and process:
-    #         normalize_uploaded_file_name = uploaded_file.name.translate(
-    #             str.maketrans({"-": "_", ".": "_", " ": "_"})
-    #         )
-    #         with st.spinner("Analyzing your document... Please allow me sometime..."):
-    #             all_splits = process_document(uploaded_file)
-    #             add_to_vector_collection(all_splits, normalize_uploaded_file_name)
-
-    #     if url_input and process_url_btn:
-    #         with st.spinner("Fetching and analyzing web page..."):
-    #             all_splits = process_url(url_input)
-    #             add_to_vector_collection(all_splits, url_input.replace("https://", "").replace("http://", "").replace("/", "_"))
-
-    #     mode = st.radio("Choose model source:", ["Offline (Ollama)", "Online (OpenAI)"])
-
-
     with center:
-        
-
         # ------------------------
         # Session state
         # ------------------------
@@ -261,8 +189,8 @@ if __name__ == "__main__":
             with st.spinner("ah okay, let me think..."):
                 results = query_collection(prompt)
                 context = results.get("documents")[0]
-                relevant_text, relevant_text_ids = re_rank_cross_encoders(context)
-                response_text = "".join([chunk for chunk in call_llm(context=relevant_text, prompt=prompt)])
+                relevant_text, relevant_text_ids = re_rank_cross_encoders(context,prompt=prompt)
+                response_text = "".join([chunk for chunk in call_llm(context=relevant_text, prompt=prompt, spl_prompt="Brief the related context with examples or usecases if any.")])
                 st.write(response_text)
 
                 pdf_bytes = generate_pdf(response_text)
@@ -279,8 +207,8 @@ if __name__ == "__main__":
             with st.spinner("Sure, I'm on it... Curating a summary for you..."):
                 results = query_collection(prompt)
                 context = results.get("documents")[0]
-                relevant_text, relevant_text_ids = re_rank_cross_encoders(context)
-                response = call_llm(context=relevant_text, prompt="Provide a detailed summary on the given requirement."+prompt)
+                relevant_text, relevant_text_ids = re_rank_cross_encoders(context,prompt=prompt)
+                response = call_llm(context=relevant_text,prompt=prompt, spl_prompt="Provide a detailed summary on the given requirement.")
                 st.write_stream(response)
 
             # pdf_bytes = generate_pdf(response)
@@ -297,9 +225,9 @@ if __name__ == "__main__":
             with st.spinner("Test strategies are essential in the testing phase... Let me help you with that..."):
                 results = query_collection(prompt)
                 context = results.get("documents")[0]
-                relevant_text, relevant_text_ids = re_rank_cross_encoders(context)
+                relevant_text, relevant_text_ids = re_rank_cross_encoders(context,prompt=prompt)
                 spl_prompt="Provide a detailed test strategy. Also mention the risks, assumptions and estimated efforts required to complete the testing."
-                response = call_llm_strategy(context=relevant_text, prompt=spl_prompt)
+                response = call_llm_strategy(context=relevant_text, prompt=prompt, spl_prompt=spl_prompt, mode=mode, client=client)
                 st.write_stream(response)
 
                 with st.expander("Analyzed documents references:"):
@@ -313,11 +241,97 @@ if __name__ == "__main__":
             with st.spinner("Test cases are crucial for ensuring quality... Let me assist you with that..."):
                 results = query_collection(prompt)
                 context = results.get("documents")[0]
-                relevant_text, relevant_text_ids = re_rank_cross_encoders(context)
-                spl_prompt="List all possible usecases in the table format containing the fields 'S.no, Testcase Summary, Test Conditions, Business Usecase' along with assumptions if any."
-                response = call_llm(context=relevant_text, prompt=spl_prompt)
-                st.write_stream(response)
+                relevant_text, relevant_text_ids = re_rank_cross_encoders(context,prompt=prompt)
+                spl_prompt="List all possible usecases in the markdown table format containing the fields 'S.no, Summary, Description, Preconditions, Step Summary, Expected Results'. Make sure to cover positive, negative, boundary and edge cases sorted in same order. Also list down a section covering assumptions and risks if any."
+                # spl_prompt={
+                #         "task": "Generate use case documentation",
+                #         "output_format": "markdown",
+                #         "requirements": {
+                #             "table_fields": [
+                #             "S.no",
+                #             "Summary",
+                #             "Description",
+                #             "Preconditions",
+                #             "Step Summary",
+                #             "Expected Results"
+                #             ],
+                #             "case_types": [
+                #             "positive",
+                #             "negative",
+                #             "boundary",
+                #             "edge"
+                #             ],
+                #             "sorting_order": "positive, negative, boundary, edge",
+                #             "additional_sections": [
+                #             {
+                #                 "title": "Assumptions and Risks",
+                #                 "content": "List any assumptions made during use case creation and potential risks associated with each case type."
+                #             }
+                #             ]
+                #         },
+                #         "format_style_guidelines": {
+                #             "markdown_table": "true",
+                #             "clear_and_concise": "true",
+                #             "technical_depth": "medium",
+                #             "audience": "QA engineers, developers, product managers"
+                #         }
+                #         }
+                response = call_llm(context=relevant_text, prompt=prompt, spl_prompt=spl_prompt)
 
+                st.markdown("""
+                        <style>
+                        .stText {
+                            text-align: left;
+                        }
+                        .stMarkdown{    
+                            text-align: left;
+                            color: black;
+                        }
+                        .stMarkdown p{    
+                            text-align: left;
+                            color: black;
+                        }
+                        .stMarkdown hr{    
+                            border-color: black;
+                            border-block-end-width: 2px;
+                        }
+                        label {
+                            color: black;
+                            font-weight: bold;
+                        }
+                        </style>
+                        """, unsafe_allow_html=True)
+
+                st.write_stream(response)
+                # response_text = ""
+                # for chunk in response:
+                #     response_text += chunk
+                # #st.write(response_text)
+                # st.code(response_text, language="markdown")
+                # copy_code = f"""
+                #     <button onclick="navigator.clipboard.writeText(`{response_text}`)">Copy to Clipboard</button>
+                # """
+                # st.markdown(copy_code, unsafe_allow_html=True)
+                #  # Download as Excel
+                # import pandas as pd
+                # import io
+                # df = pd.DataFrame({"Result": [response_text]})
+                # excel_buffer = io.BytesIO()
+                # df.to_excel(excel_buffer, index=False)
+                # excel_buffer.seek(0)
+                # st.download_button(
+                #     "Download Result as Excel",
+                #     data=excel_buffer,
+                #     file_name="result.xlsx",
+                #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                # )
+
+
+                st.markdown(
+                    """
+                    <br><br><br>
+                    """
+                    , unsafe_allow_html=True)
                 with st.expander("Analyzed documents references:"):
                     st.write(results)
 
@@ -332,12 +346,18 @@ if __name__ == "__main__":
         <br>
         """
         , unsafe_allow_html=True)
-        # ------------------------
-        # Dropdown of past prompts
-        # ------------------------
-        if st.session_state["prompts"]:
-            selected_prompt = st.selectbox("📜 Past Prompts", st.session_state["prompts"][::-1])  # newest first
-            st.info(f"Selected: {selected_prompt}")
+        with st.expander("📇 Your Prompts History"):
+            st.markdown(
+            """
+            Your past prompts will be stored here for easy access. Click on any prompt to reuse it.
+            """
+            , unsafe_allow_html=True)
+            # ------------------------
+            # Dropdown of past prompts
+            # ------------------------
+            if st.session_state["prompts"]:
+                selected_prompt = st.selectbox("📜 Past Prompts", st.session_state["prompts"][::-1])  # newest first
+                st.info(f"Selected: {selected_prompt}")
 
         # # ------------------------
         # # Display full conversation
