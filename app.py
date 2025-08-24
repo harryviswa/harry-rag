@@ -1,11 +1,14 @@
 import streamlit as st
 from openai import OpenAI
-from prompts import system_prompt, qa_prompt, qa_strategy_prompt
+from prompts import qa_testcase_prompt, qa_prompt, qa_strategy_prompt
 from models import (
-    process_document, process_url, get_vector_collection, add_to_vector_collection,
-    query_collection, call_llm_strategy, call_llm, re_rank_cross_encoders, list_vector_sources
+    active_model,process_document, process_url, get_vector_collection, add_to_vector_collection,
+    query_collection, call_llm, re_rank_cross_encoders, list_vector_sources
 )
 from utils import generate_pdf, get_base64_image
+
+import uuid
+
 
 
 if __name__ == "__main__":
@@ -13,6 +16,10 @@ if __name__ == "__main__":
     # ------------------------
     # Init session state
     # ------------------------
+    if "user_id" not in st.session_state:
+        st.session_state["user_id"] = str(uuid.uuid4())  # Or use a login username
+
+    user_id = st.session_state["user_id"]
     if "messages" not in st.session_state:
         st.session_state["messages"] = [
             {"role": "system", "content": qa_prompt}
@@ -59,15 +66,16 @@ if __name__ == "__main__":
             )
             with st.spinner("Analyzing your document... Please allow me sometime..."):
                 all_splits = process_document(uploaded_file)
-                add_to_vector_collection(all_splits, normalize_uploaded_file_name)
+                add_to_vector_collection(all_splits, normalize_uploaded_file_name, user_id)
 
         if url_input and process_url_btn:
             with st.spinner("Fetching and analyzing web page..."):
                 all_splits = process_url(url_input)
-                add_to_vector_collection(all_splits, url_input.replace("https://", "").replace("http://", "").replace("/", "_"))
+                add_to_vector_collection(all_splits, url_input.replace("https://", "").replace("http://", "").replace("/", "_"),user_id)
 
         with st.expander("🧑‍🦱 Model Selection (Offline/Online)"):
             mode = st.radio("Choose model source:", ["Offline", "Online (OpenAI)"])
+            
             usr_key = None
             if mode == "Online (OpenAI)":
                 usr_key = st.text_input("Enter your OpenAI API Key", type="password")
@@ -75,9 +83,9 @@ if __name__ == "__main__":
                 client = OpenAI(api_key=usr_key)
             else:
                 client = None
-    
+            st.info("Offline model: "+active_model)
         with st.expander("📚 My Library Files"):
-            sources = list_vector_sources()
+            sources = list_vector_sources(user_id)
             if sources:
                 for src in sources:
                     st.markdown(f"- {src}")
@@ -134,7 +142,7 @@ if __name__ == "__main__":
             color: black;
         }
         .stMarkdown p{    
-            text-align: center;
+            text-align: left;
             color: black;
         }
         .stMarkdown hr{    
@@ -167,7 +175,10 @@ if __name__ == "__main__":
         if "prompts" not in st.session_state:
             st.session_state["prompts"] = []  # store all past prompts
 
-        prompt = st.text_area("**Provide your context or questions on the source provided**")
+        prompt = st.text_area(
+            "**Provide your context or questions on the source provided**",
+            value=st.session_state.get("prompt_text", "")
+        )
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -187,10 +198,10 @@ if __name__ == "__main__":
     with resultl:
         if ask and prompt:
             with st.spinner("ah okay, let me think..."):
-                results = query_collection(prompt)
+                results = query_collection(prompt,user_id)
                 context = results.get("documents")[0]
                 relevant_text, relevant_text_ids = re_rank_cross_encoders(context,prompt=prompt)
-                response_text = "".join([chunk for chunk in call_llm(context=relevant_text, prompt=prompt, spl_prompt="Brief the related context with examples or usecases if any.")])
+                response_text = "".join([chunk for chunk in call_llm(context=relevant_text,sysprompt=qa_prompt, prompt=prompt, spl_prompt="Brief the related context with examples or usecases if any.", mode=mode, client=client)])
                 st.write(response_text)
 
                 pdf_bytes = generate_pdf(response_text)
@@ -205,10 +216,10 @@ if __name__ == "__main__":
         
         if summary and prompt:
             with st.spinner("Sure, I'm on it... Curating a summary for you..."):
-                results = query_collection(prompt)
+                results = query_collection(prompt,user_id)
                 context = results.get("documents")[0]
                 relevant_text, relevant_text_ids = re_rank_cross_encoders(context,prompt=prompt)
-                response = call_llm(context=relevant_text,prompt=prompt, spl_prompt="Provide a detailed summary on the given requirement.")
+                response = call_llm(context=relevant_text,sysprompt=qa_prompt,prompt=prompt, spl_prompt="Provide a detailed summary on the given requirement.", mode=mode, client=client)
                 st.write_stream(response)
 
             # pdf_bytes = generate_pdf(response)
@@ -223,11 +234,11 @@ if __name__ == "__main__":
 
         if test_strategy and prompt:
             with st.spinner("Test strategies are essential in the testing phase... Let me help you with that..."):
-                results = query_collection(prompt)
+                results = query_collection(prompt,user_id)
                 context = results.get("documents")[0]
                 relevant_text, relevant_text_ids = re_rank_cross_encoders(context,prompt=prompt)
                 spl_prompt="Provide a detailed test strategy. Also mention the risks, assumptions and estimated efforts required to complete the testing."
-                response = call_llm_strategy(context=relevant_text, prompt=prompt, spl_prompt=spl_prompt, mode=mode, client=client)
+                response = call_llm(context=relevant_text,sysprompt=qa_strategy_prompt, prompt=prompt, spl_prompt=spl_prompt, mode=mode, client=client)
                 st.write_stream(response)
 
                 with st.expander("Analyzed documents references:"):
@@ -239,10 +250,10 @@ if __name__ == "__main__":
 
         if test_case and prompt:
             with st.spinner("Test cases are crucial for ensuring quality... Let me assist you with that..."):
-                results = query_collection(prompt)
+                results = query_collection(prompt,user_id)
                 context = results.get("documents")[0]
                 relevant_text, relevant_text_ids = re_rank_cross_encoders(context,prompt=prompt)
-                spl_prompt="List all possible usecases in the markdown table format containing the fields 'S.no, Summary, Description, Preconditions, Step Summary, Expected Results'. Make sure to cover positive, negative, boundary and edge cases sorted in same order. Also list down a section covering assumptions and risks if any."
+                #spl_prompt="List all possible usecases in the markdown table format containing the fields 'S.no, Summary, Description, Preconditions, Step Summary, Expected Results'. Each step summary should be of separate row with the expected result.  Make sure to cover positive, negative, boundary and edge cases sorted in same order. Also list down a section covering assumptions and risks if any."
                 # spl_prompt={
                 #         "task": "Generate use case documentation",
                 #         "output_format": "markdown",
@@ -276,7 +287,7 @@ if __name__ == "__main__":
                 #             "audience": "QA engineers, developers, product managers"
                 #         }
                 #         }
-                response = call_llm(context=relevant_text, prompt=prompt, spl_prompt=spl_prompt)
+                response = call_llm(context=relevant_text,sysprompt=qa_prompt, prompt=prompt, spl_prompt=qa_testcase_prompt, mode=mode, client=client)
 
                 st.markdown("""
                         <style>
@@ -358,7 +369,8 @@ if __name__ == "__main__":
             if st.session_state["prompts"]:
                 selected_prompt = st.selectbox("📜 Past Prompts", st.session_state["prompts"][::-1])  # newest first
                 st.info(f"Selected: {selected_prompt}")
-
+                if st.button("Use Selected Prompt"):
+                    st.session_state["prompt_text"] = selected_prompt
         # # ------------------------
         # # Display full conversation
         # # ------------------------
