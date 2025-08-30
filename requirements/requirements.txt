@@ -10,3 +10,4 @@ unstructured            # Unstructured document loader
 msoffcrypto-tool        # Office file decryption
 pandas                  # DataFrame and Excel export
 uuid                    # Unique user/session IDs
+openai                  # OpenAI API
